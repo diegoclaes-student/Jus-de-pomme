@@ -1,0 +1,17 @@
+<% const d = new Date(r.start_at); const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); %>
+<div class="row">
+  <div class="col-12 col-lg-8 mx-auto">
+    <div class="card p-3 p-md-4">
+      <h2 class="h4 mb-3 text-danger"><i class="bi bi-x-octagon me-1"></i>Annuler la réservation</h2>
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Date:</b> <%= r.date %> <%= hm %></li>
+        <li class="list-group-item"><b>Lieu:</b> <%= r.location %></li>
+        <li class="list-group-item"><b>Nom:</b> <%= r.first_name %> <%= r.last_name %></li>
+        <li class="list-group-item"><b>Quantité:</b> <%= r.quantity %></li>
+      </ul>
+      <form method="post" onsubmit="return confirm('Confirmer l’annulation ?')">
+        <button class="btn btn-danger"><i class="bi bi-trash me-1"></i>Confirmer l’annulation</button>
+      </form>
+    </div>
+  </div>
+</div>

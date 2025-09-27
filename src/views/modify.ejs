@@ -1,0 +1,33 @@
+<% const d = new Date(r.start_at); const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); %>
+<div class="row">
+  <div class="col-12 col-lg-8 mx-auto">
+    <div class="card p-3 p-md-4">
+      <h2 class="h4 mb-3"><i class="bi bi-pencil-square me-1"></i>Modifier – <%= r.date %> <%= hm %> – <%= r.location %></h2>
+      <form method="post" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Prénom</label>
+          <input name="first_name" class="form-control" value="<%= r.first_name %>" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nom</label>
+          <input name="last_name" class="form-control" value="<%= r.last_name %>" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Téléphone</label>
+          <input name="phone" class="form-control" value="<%= r.phone %>" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Quantité</label>
+          <input name="quantity" type="number" min="1" class="form-control" value="<%= r.quantity %>" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Commentaire</label>
+          <textarea name="comment" rows="3" class="form-control"><%= r.comment || "" %></textarea>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

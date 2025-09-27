@@ -1,0 +1,154 @@
+<%
+// Helpers
+function timeHM(iso){ const d=new Date(iso);return (String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')); }
+const jsAvailableDays = JSON.stringify(availableDays || []);
+const jsDayCounts = JSON.stringify(dayCounts || {});
+const jsSelected = JSON.stringify(selectedDate || null);
+%>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <div class="card p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h2 class="h5 m-0"><i class="bi bi-calendar3 me-2"></i>Calendrier</h2>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary" id="calPrev" type="button" aria-label="Mois précédent"><i class="bi bi-chevron-left"></i></button>
+          <button class="btn btn-outline-primary" id="calToday" type="button">Aujourd’hui</button>
+          <button class="btn btn-outline-primary" id="calNext" type="button" aria-label="Mois suivant"><i class="bi bi-chevron-right"></i></button>
+        </div>
+      </div>
+      <div id="calHeader" class="text-center fw-semibold mb-2"></div>
+      <div class="cal-weekdays d-none d-sm-grid">
+        <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div class="small text-secondary mt-2">
+        <span class="cal-dot me-1"></span> Jours avec créneaux disponibles
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card p-3 p-md-4">
+      <% if (!selectedDate) { %>
+        <div class="alert alert-light border m-0">Aucun créneau disponible pour le moment.</div>
+      <% } else { %>
+        <h3 class="h5 mb-3"><i class="bi bi-clock-history me-1"></i>Créneaux du <%= selectedDate %></h3>
+
+        <% Object.keys(groupedByLoc).forEach(loc => { %>
+          <div class="mb-3">
+            <div class="d-flex align-items-center mb-2">
+              <span class="badge badge-soft me-2">Lieu</span>
+              <h4 class="h6 m-0"><%= loc %></h4>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <% groupedByLoc[loc].forEach(s => { %>
+                <a class="btn btn-outline-primary btn-sm" href="/reserve/<%= s.slot_id %>">
+                  <i class="bi bi-clock me-1"></i><%= timeHM(s.start_at) %>
+                </a>
+              <% }) %>
+            </div>
+          </div>
+          <hr>
+        <% }) %>
+
+        <% if (Object.keys(groupedByLoc).length === 0) { %>
+          <div class="alert alert-light border m-0">Aucun créneau ce jour.</div>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const availableDays = new Set(<%- jsAvailableDays %>);           // ["YYYY-MM-DD", ...]
+  const dayCounts = <%- jsDayCounts %>;                             // {"YYYY-MM-DD": n}
+  const urlSelected = <%- jsSelected %>;                            // "YYYY-MM-DD" | null
+
+  const calHeaderEl = document.getElementById("calHeader");
+  const grid = document.getElementById("calGrid");
+  const btnPrev = document.getElementById("calPrev");
+  const btnNext = document.getElementById("calNext");
+  const btnToday = document.getElementById("calToday");
+
+  // Mois affiché
+  let viewDate = urlSelected ? new Date(urlSelected) : new Date();
+  viewDate.setDate(1); // début de mois
+
+  function fmt(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+  function monthLabel(d) {
+    return d.toLocaleDateString("fr-BE", { month: "long", year: "numeric" });
+  }
+  function renderCal() {
+    calHeaderEl.textContent = monthLabel(viewDate);
+    grid.innerHTML = "";
+
+    // Lundi comme début de semaine
+    const first = new Date(viewDate);
+    const startOffset = (first.getDay() + 6) % 7; // 0 = lundi
+    const start = new Date(first);
+    start.setDate(1 - startOffset);
+
+    // 6 lignes x 7 colonnes
+    for (let i = 0; i < 42; i++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const ds = fmt(day);
+
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cal-cell";
+      cell.textContent = String(day.getDate());
+
+      // Styles: mois courant vs hors mois
+      if (day.getMonth() !== viewDate.getMonth()) {
+        cell.classList.add("cal-out");
+        cell.disabled = true;
+      }
+
+      // Disponible ?
+      if (availableDays.has(ds)) {
+        cell.classList.add("cal-has");
+        const count = dayCounts[ds] || 0;
+        cell.title = `${count} créneau(x) disponible(s)`;
+        cell.addEventListener("click", () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("d", ds);
+          window.location.href = url.toString();
+        });
+      } else {
+        cell.disabled = true;
+      }
+
+      // Sélection
+      if (urlSelected && ds === urlSelected) {
+        cell.classList.add("cal-selected");
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  btnPrev.addEventListener("click", () => {
+    viewDate.setMonth(viewDate.getMonth() - 1);
+    renderCal();
+  });
+  btnNext.addEventListener("click", () => {
+    viewDate.setMonth(viewDate.getMonth() + 1);
+    renderCal();
+  });
+  btnToday.addEventListener("click", () => {
+    const now = new Date();
+    viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    renderCal();
+  });
+
+  renderCal();
+})();
+</script>

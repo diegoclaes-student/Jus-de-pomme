@@ -1,0 +1,24 @@
+<% const d = new Date(reservation.start_at); const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); %>
+<div class="row">
+  <div class="col-12 col-lg-8 mx-auto">
+    <div class="card p-3 p-md-4">
+      <h2 class="h4 mb-3 text-success"><i class="bi bi-bag-check me-1"></i>Réservation confirmée</h2>
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Lieu:</b> <%= reservation.location %></li>
+        <li class="list-group-item"><b>Date:</b> <%= reservation.date %></li>
+        <li class="list-group-item"><b>Heure:</b> <%= hm %></li>
+        <li class="list-group-item"><b>Nom:</b> <%= reservation.first_name %> <%= reservation.last_name %></li>
+        <li class="list-group-item"><b>Téléphone:</b> <%= reservation.phone %></li>
+        <li class="list-group-item"><b>Quantité:</b> <%= reservation.quantity %></li>
+        <% if (reservation.comment) { %><li class="list-group-item"><b>Commentaire:</b> <%= reservation.comment %></li><% } %>
+      </ul>
+      <div class="d-flex gap-2">
+        <a class="btn btn-primary" href="/r/<%= token %>/edit"><i class="bi bi-pencil-square me-1"></i>Modifier</a>
+        <a class="btn btn-danger" href="/r/<%= token %>/cancel"><i class="bi bi-x-circle me-1"></i>Annuler</a>
+      </div>
+      <% if (!emailSent) { %>
+        <div class="alert alert-info mt-3"><i class="bi bi-envelope me-1"></i>Pense à indiquer ton email pour recevoir les liens de modification/annulation.</div>
+      <% } %>
+    </div>
+  </div>
+</div>

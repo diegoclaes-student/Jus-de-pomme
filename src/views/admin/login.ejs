@@ -1,0 +1,17 @@
+<div class="row">
+  <div class="col-12 col-md-6 col-lg-4 mx-auto">
+    <div class="card p-3 p-md-4">
+      <h2 class="h4 mb-3 text-center"><i class="bi bi-shield-lock me-1"></i>Admin – Connexion</h2>
+      <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+      <form method="post" class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Mot de passe</label>
+          <input name="password" type="password" class="form-control" required>
+        </div>
+        <div class="col-12 d-grid">
+          <button class="btn btn-primary"><i class="bi bi-box-arrow-in-right me-1"></i>Se connecter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

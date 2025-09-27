@@ -1,0 +1,74 @@
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h2 class="h4 m-0"><i class="bi bi-speedometer2 me-2"></i>Tableau de bord</h2>
+  <form action="/admin/logout" method="post">
+    <button class="btn btn-outline-danger btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Se déconnecter</button>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="h6 m-0">Actions rapides</h3>
+        <div class="d-flex gap-2">
+          <a class="btn btn-primary btn-sm" href="/admin/presences/new"><i class="bi bi-plus-circle me-1"></i>Ajouter une présence</a>
+          <a class="btn btn-outline-primary btn-sm" href="/admin/presences"><i class="bi bi-geo-alt me-1"></i>Gérer les présences</a>
+          <a class="btn btn-outline-primary btn-sm" href="/admin/reservations"><i class="bi bi-list-check me-1"></i>Voir les réservations</a>
+        </div>
+      </div>
+      <p class="text-secondary small m-0">Gérez vos créneaux et suivez les réservations en temps réel.</p>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <div class="card p-3 h-100">
+      <h3 class="h6">Présences à venir</h3>
+      <% if (presences.length === 0) { %>
+        <div class="alert alert-light border m-0">Aucune présence déclarée.</div>
+      <% } else { %>
+        <ul class="list-group list-group-flush">
+          <% presences.forEach(p => { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="badge badge-soft me-2"><%= p.date %></span>
+                <b><%= p.start_time %></b> – <%= p.end_time %> · <%= p.location %>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h3 class="h6 mb-3">Réservations aujourd’hui</h3>
+  <% if (todayReservations.length === 0) { %>
+    <div class="alert alert-light border m-0">Aucune réservation aujourd’hui.</div>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Heure</th>
+            <th>Lieu</th>
+            <th>Nom</th>
+            <th>Téléphone</th>
+            <th>Qté</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% todayReservations.forEach(r => { const d = new Date(r.start_at); const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); %>
+            <tr>
+              <td><%= hm %></td>
+              <td><%= r.location %></td>
+              <td><%= r.first_name %> <%= r.last_name %></td>
+              <td><%= r.phone %></td>
+              <td><span class="badge text-bg-primary"><%= r.quantity %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

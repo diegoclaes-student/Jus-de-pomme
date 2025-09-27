@@ -1,0 +1,43 @@
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h2 class="h4 m-0"><i class="bi bi-geo-alt me-2"></i>Gérer les présences</h2>
+  <div class="d-flex gap-2">
+    <a href="/admin" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i>Tableau de bord</a>
+    <a href="/admin/presences/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Nouvelle présence</a>
+  </div>
+</div>
+
+<div class="card p-0">
+  <% if (presences.length === 0) { %>
+    <div class="alert alert-light border m-3">Aucune présence pour le moment.</div>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle m-0">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Plage horaire</th>
+            <th>Lieu</th>
+            <th class="text-center">Créneaux</th>
+            <th class="text-center">Réservations</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% presences.forEach(p => { %>
+            <tr>
+              <td class="text-nowrap"><%= p.date %></td>
+              <td><%= p.start_time %> – <%= p.end_time %></td>
+              <td><%= p.location %></td>
+              <td class="text-center"><span class="badge text-bg-secondary"><%= p.slots_count %></span></td>
+              <td class="text-center"><span class="badge <%= p.reservations_count ? 'text-bg-primary' : 'text-bg-light' %>"><%= p.reservations_count %></span></td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-primary" href="/admin/presences/<%= p.id %>/edit"><i class="bi bi-pencil-square"></i></a>
+                <a class="btn btn-sm btn-outline-danger" href="/admin/presences/<%= p.id %>/delete"><i class="bi bi-trash"></i></a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

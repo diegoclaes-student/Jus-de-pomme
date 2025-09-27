@@ -1,0 +1,28 @@
+<div class="row">
+  <div class="col-12 col-lg-7 mx-auto">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="h4 m-0 text-danger"><i class="bi bi-trash me-2"></i>Supprimer la présence</h2>
+      <a href="/admin/presences" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Retour</a>
+    </div>
+
+    <div class="card p-3 p-md-4">
+      <p>Tu es sur le point de supprimer la présence suivante:</p>
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Date:</b> <%= presence.date %></li>
+        <li class="list-group-item"><b>Heures:</b> <%= presence.start_time %> – <%= presence.end_time %></li>
+        <li class="list-group-item"><b>Lieu:</b> <%= presence.location %></li>
+        <li class="list-group-item"><b>Réservations impactées:</b> <%= reservationsCount %></li>
+      </ul>
+
+      <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        La suppression va supprimer tous les créneaux de cette présence, et les réservations associées.
+      </div>
+
+      <form method="post">
+        <button class="btn btn-danger"><i class="bi bi-trash me-1"></i>Confirmer la suppression</button>
+        <a href="/admin/presences" class="btn btn-outline-secondary ms-2">Annuler</a>
+      </form>
+    </div>
+  </div>
+</div>
