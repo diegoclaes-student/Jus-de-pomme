@@ -1,9 +1,10 @@
 import express from "express";
-import session from "express-session";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import expressLayouts from "express-ejs-layouts";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
 import {
@@ -30,36 +31,47 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
+// EJS + layouts
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(expressLayouts);
 app.set("layout", "layout");
 
+// Static: dossier public/ à la racine du projet
+app.use(express.static(path.join(process.cwd(), "public")));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(cookieParser());
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "dev_secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { sameSite: "lax" }
-  })
-);
-
-// Branding constants
+// Branding
 const BRAND = {
   name: "Jus de pomme des pionniers d’Ecaussinnes",
   primary: "#7B1E2B",
   accent: "#B23A48"
 };
 
-// Helpers
+// Auth admin via cookie JWT (serverless-friendly)
+function setAdminCookie(res) {
+  const token = jwt.sign({ admin: true }, process.env.SESSION_SECRET || "dev_secret", { expiresIn: "7d" });
+  res.cookie("admin_token", token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: !!process.env.VERCEL,
+    path: "/"
+  });
+}
+function clearAdminCookie(res) {
+  res.clearCookie("admin_token", { path: "/" });
+}
 function requireAdmin(req, res, next) {
-  if (req.session && req.session.isAdmin) return next();
-  return res.redirect("/admin/login");
+  const token = req.cookies?.admin_token;
+  if (!token) return res.redirect("/admin/login");
+  try {
+    jwt.verify(token, process.env.SESSION_SECRET || "dev_secret");
+    return next();
+  } catch {
+    return res.redirect("/admin/login");
+  }
 }
 function isBeforeSlotStart(slotStartIso) {
   const now = new Date();
@@ -67,12 +79,15 @@ function isBeforeSlotStart(slotStartIso) {
   return now < start;
 }
 
-// Routes - Client (Calendrier + créneaux du jour sélectionné)
-app.get("/", (req, res) => {
-  const allSlots = listUpcomingSlots({});
+// Health (optionnel)
+app.get("/healthz", (req, res) => res.status(200).send("ok"));
+
+// Accueil: calendrier + créneaux du jour sélectionné (?d=YYYY-MM-DD)
+app.get("/", async (req, res) => {
+  const allSlots = await listUpcomingSlots({});
   const counts = {};
   for (const s of allSlots) {
-    const day = s.start_at.slice(0, 10);
+    const day = new Date(s.start_at).toISOString().slice(0, 10);
     counts[day] = (counts[day] || 0) + 1;
   }
   const availableDays = Object.keys(counts);
@@ -80,7 +95,7 @@ app.get("/", (req, res) => {
 
   let groupedByLoc = {};
   if (selectedDate) {
-    const daySlots = listUpcomingSlots({ dateFilter: selectedDate });
+    const daySlots = await listUpcomingSlots({ dateFilter: selectedDate });
     for (const s of daySlots) {
       const loc = s.location;
       if (!groupedByLoc[loc]) groupedByLoc[loc] = [];
@@ -97,15 +112,15 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/reserve/:slotId", (req, res) => {
-  const slot = getSlotById(Number(req.params.slotId));
+// Réservation
+app.get("/reserve/:slotId", async (req, res) => {
+  const slot = await getSlotById(Number(req.params.slotId));
   if (!slot) return res.status(404).send("Créneau introuvable");
   res.render("reserve", { BRAND, slot });
 });
-
 app.post("/reserve/:slotId", async (req, res) => {
   const slotId = Number(req.params.slotId);
-  const slot = getSlotById(slotId);
+  const slot = await getSlotById(slotId);
   if (!slot) return res.status(404).send("Créneau introuvable");
 
   const { first_name, last_name, phone, quantity, comment, email } = req.body;
@@ -116,7 +131,7 @@ app.post("/reserve/:slotId", async (req, res) => {
   if (isNaN(qty) || qty < 1) return res.status(400).send("Quantité invalide");
 
   const token = uuidv4();
-  createReservation({
+  await createReservation({
     slot_id: slotId,
     first_name,
     last_name,
@@ -126,7 +141,7 @@ app.post("/reserve/:slotId", async (req, res) => {
     token
   });
 
-  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+  const baseUrl = process.env.BASE_URL || `http://localhost:3000`;
   const reservation = {
     token,
     first_name,
@@ -150,15 +165,15 @@ app.post("/reserve/:slotId", async (req, res) => {
   res.render("confirm", { BRAND, reservation, baseUrl, token, emailSent: !!email });
 });
 
-app.get("/r/:token/edit", (req, res) => {
-  const r = getReservationByToken(req.params.token);
+// Modifier / Annuler
+app.get("/r/:token/edit", async (req, res) => {
+  const r = await getReservationByToken(req.params.token);
   if (!r) return res.status(404).send("Réservation introuvable");
   if (!isBeforeSlotStart(r.start_at)) return res.status(403).send("Modification non autorisée (créneau commencé)");
   res.render("modify", { BRAND, r });
 });
-
-app.post("/r/:token/edit", (req, res) => {
-  const r = getReservationByToken(req.params.token);
+app.post("/r/:token/edit", async (req, res) => {
+  const r = await getReservationByToken(req.params.token);
   if (!r) return res.status(404).send("Réservation introuvable");
   if (!isBeforeSlotStart(r.start_at)) return res.status(403).send("Modification non autorisée (créneau commencé)");
 
@@ -167,149 +182,129 @@ app.post("/r/:token/edit", (req, res) => {
   if (!first_name || !last_name || !phone || !qty || qty < 1) {
     return res.status(400).send("Champs requis invalides");
   }
-  updateReservation(req.params.token, { first_name, last_name, phone, quantity: qty, comment: comment || null });
-
+  await updateReservation(req.params.token, { first_name, last_name, phone, quantity: qty, comment: comment || null });
   res.render("modified", { BRAND, r: { ...r, first_name, last_name, phone, quantity: qty, comment: comment || "" } });
 });
-
-app.get("/r/:token/cancel", (req, res) => {
-  const r = getReservationByToken(req.params.token);
+app.get("/r/:token/cancel", async (req, res) => {
+  const r = await getReservationByToken(req.params.token);
   if (!r) return res.status(404).send("Réservation introuvable");
   if (!isBeforeSlotStart(r.start_at)) return res.status(403).send("Annulation non autorisée (créneau commencé)");
   res.render("cancel_confirm", { BRAND, r });
 });
-
-app.post("/r/:token/cancel", (req, res) => {
-  const r = getReservationByToken(req.params.token);
+app.post("/r/:token/cancel", async (req, res) => {
+  const r = await getReservationByToken(req.params.token);
   if (!r) return res.status(404).send("Réservation introuvable");
   if (!isBeforeSlotStart(r.start_at)) return res.status(403).send("Annulation non autorisée (créneau commencé)");
-  deleteReservationByToken(req.params.token);
+  await deleteReservationByToken(req.params.token);
   res.render("canceled", { BRAND, r });
 });
 
-// Admin
+// Admin login/logout
 app.get("/admin/login", (req, res) => {
   res.render("admin/login", { BRAND, error: null });
 });
 app.post("/admin/login", (req, res) => {
   const { password } = req.body;
   if (password && password === (process.env.ADMIN_PASSWORD || "admin")) {
-    req.session.isAdmin = true;
+    setAdminCookie(res);
     return res.redirect("/admin");
   }
   res.render("admin/login", { BRAND, error: "Mot de passe incorrect" });
 });
 app.post("/admin/logout", (req, res) => {
-  req.session.destroy(() => res.redirect("/admin/login"));
+  clearAdminCookie(res);
+  res.redirect("/admin/login");
 });
 
-app.get("/admin", requireAdmin, (req, res) => {
-  const presences = listPresences();
+// Admin pages
+app.get("/admin", requireAdmin, async (req, res) => {
+  const presences = await listPresences();
   const today = new Date().toISOString().slice(0, 10);
-  const todayReservations = listReservations({ date: today });
+  const todayReservations = await listReservations({ date: today });
   res.render("admin/dashboard", { BRAND, presences, todayReservations });
 });
-
 app.get("/admin/presences/new", requireAdmin, (req, res) => {
   res.render("admin/presences_new", { BRAND, error: null });
 });
-app.post("/admin/presences/new", requireAdmin, (req, res) => {
+app.post("/admin/presences/new", requireAdmin, async (req, res) => {
   const { location, date, start_time, end_time } = req.body;
   if (!location || !date || !start_time || !end_time) {
     return res.render("admin/presences_new", { BRAND, error: "Tous les champs sont requis" });
   }
-  const start = new Date(`${date}T${start_time}:00`);
-  const end = new Date(`${date}T${end_time}:00`);
+  const start = new Date(`${date}T${start_time}:00Z`);
+  const end = new Date(`${date}T${end_time}:00Z`);
   if (!(start < end)) {
     return res.render("admin/presences_new", { BRAND, error: "L'heure de fin doit être après l'heure de début" });
   }
-  createPresence({ location, date, start_time, end_time });
+  await createPresence({ location, date, start_time, end_time });
   res.redirect("/admin/presences");
 });
 
-/* ===== Gestion des présences ===== */
-
-// Liste et actions
-app.get("/admin/presences", requireAdmin, (req, res) => {
-  const rows = listPresencesWithCounts();
+// Gestion présences
+app.get("/admin/presences", requireAdmin, async (req, res) => {
+  const rows = await listPresencesWithCounts();
   res.render("admin/presences_index", { BRAND, presences: rows });
 });
-
-// Edit form
-app.get("/admin/presences/:id/edit", requireAdmin, (req, res) => {
+app.get("/admin/presences/:id/edit", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const presence = getPresenceById(id);
+  const presence = await getPresenceById(id);
   if (!presence) return res.status(404).send("Présence introuvable");
-  const reservationsCount = countReservationsForPresence(id);
+  const reservationsCount = await countReservationsForPresence(id);
   res.render("admin/presences_edit", { BRAND, presence, reservationsCount, error: null });
 });
-
-// Edit submit (avec régénération des créneaux)
-app.post("/admin/presences/:id/edit", requireAdmin, (req, res) => {
+app.post("/admin/presences/:id/edit", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const presence = getPresenceById(id);
+  const presence = await getPresenceById(id);
   if (!presence) return res.status(404).send("Présence introuvable");
 
   const { location, date, start_time, end_time, confirm_impact } = req.body;
   if (!location || !date || !start_time || !end_time) {
-    const reservationsCount = countReservationsForPresence(id);
+    const reservationsCount = await countReservationsForPresence(id);
     return res.render("admin/presences_edit", { BRAND, presence, reservationsCount, error: "Tous les champs sont requis" });
   }
-  const start = new Date(`${date}T${start_time}:00`);
-  const end = new Date(`${date}T${end_time}:00`);
+  const start = new Date(`${date}T${start_time}:00Z`);
+  const end = new Date(`${date}T${end_time}:00Z`);
   if (!(start < end)) {
-    const reservationsCount = countReservationsForPresence(id);
+    const reservationsCount = await countReservationsForPresence(id);
     return res.render("admin/presences_edit", { BRAND, presence, reservationsCount, error: "L'heure de fin doit être après l'heure de début" });
   }
-
-  const reservationsCount = countReservationsForPresence(id);
+  const reservationsCount = await countReservationsForPresence(id);
   if (reservationsCount > 0 && !confirm_impact) {
-    // Demander confirmation explicite
     return res.render("admin/presences_edit", {
       BRAND,
       presence: { id, location, date, start_time, end_time },
       reservationsCount,
-      error: "Cette modification va supprimer des créneaux existants et leurs réservations. Coche la case de confirmation pour continuer."
+      error: "Cette modification va régénérer les créneaux et peut supprimer des réservations. Coche la case pour confirmer."
     });
   }
-
-  updatePresenceWithRegeneration(id, { location, date, start_time, end_time });
+  await updatePresenceWithRegeneration(id, { location, date, start_time, end_time });
   res.redirect("/admin/presences");
 });
-
-// Delete confirm page
-app.get("/admin/presences/:id/delete", requireAdmin, (req, res) => {
+app.get("/admin/presences/:id/delete", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const presence = getPresenceById(id);
+  const presence = await getPresenceById(id);
   if (!presence) return res.status(404).send("Présence introuvable");
-  const reservationsCount = countReservationsForPresence(id);
+  const reservationsCount = await countReservationsForPresence(id);
   res.render("admin/presences_delete_confirm", { BRAND, presence, reservationsCount });
 });
-
-// Delete action
-app.post("/admin/presences/:id/delete", requireAdmin, (req, res) => {
+app.post("/admin/presences/:id/delete", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const presence = getPresenceById(id);
+  const presence = await getPresenceById(id);
   if (!presence) return res.status(404).send("Présence introuvable");
-
-  // Optionnel: vérifier confirm suppression
-  deletePresence(id);
+  await deletePresence(id);
   res.redirect("/admin/presences");
 });
 
-// Réservations
-app.get("/admin/reservations", requireAdmin, (req, res) => {
+// Liste réservations
+app.get("/admin/reservations", requireAdmin, async (req, res) => {
   const { date, lieu } = req.query;
-  const reservations = listReservations({ date: date || null, location: lieu || "" });
+  const reservations = await listReservations({ date: date || null, location: lieu || "" });
   res.render("admin/reservations", { BRAND, reservations, query: { date: date || "", lieu: lieu || "" } });
 });
-app.post("/admin/reservations/delete", requireAdmin, (req, res) => {
+app.post("/admin/reservations/delete", requireAdmin, async (req, res) => {
   const { token } = req.body;
-  if (token) deleteReservationByToken(token);
+  if (token) await deleteReservationByToken(token);
   res.redirect("/admin/reservations");
 });
 
-// Start
-app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
-});
+export default app;

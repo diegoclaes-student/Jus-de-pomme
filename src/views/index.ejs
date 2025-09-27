@@ -62,9 +62,9 @@ const jsSelected = JSON.stringify(selectedDate || null);
 
 <script>
 (() => {
-  const availableDays = new Set(<%- jsAvailableDays %>);           // ["YYYY-MM-DD", ...]
-  const dayCounts = <%- jsDayCounts %>;                             // {"YYYY-MM-DD": n}
-  const urlSelected = <%- jsSelected %>;                            // "YYYY-MM-DD" | null
+  const availableDays = new Set(<%- jsAvailableDays %>);
+  const dayCounts = <%- jsDayCounts %>;
+  const urlSelected = <%- jsSelected %>;
 
   const calHeaderEl = document.getElementById("calHeader");
   const grid = document.getElementById("calGrid");
@@ -72,9 +72,8 @@ const jsSelected = JSON.stringify(selectedDate || null);
   const btnNext = document.getElementById("calNext");
   const btnToday = document.getElementById("calToday");
 
-  // Mois affiché
   let viewDate = urlSelected ? new Date(urlSelected) : new Date();
-  viewDate.setDate(1); // début de mois
+  viewDate.setDate(1);
 
   function fmt(d) {
     const y = d.getFullYear();
@@ -89,13 +88,11 @@ const jsSelected = JSON.stringify(selectedDate || null);
     calHeaderEl.textContent = monthLabel(viewDate);
     grid.innerHTML = "";
 
-    // Lundi comme début de semaine
     const first = new Date(viewDate);
-    const startOffset = (first.getDay() + 6) % 7; // 0 = lundi
+    const startOffset = (first.getDay() + 6) % 7; // Lundi=0
     const start = new Date(first);
     start.setDate(1 - startOffset);
 
-    // 6 lignes x 7 colonnes
     for (let i = 0; i < 42; i++) {
       const day = new Date(start);
       day.setDate(start.getDate() + i);
@@ -106,13 +103,11 @@ const jsSelected = JSON.stringify(selectedDate || null);
       cell.className = "cal-cell";
       cell.textContent = String(day.getDate());
 
-      // Styles: mois courant vs hors mois
       if (day.getMonth() !== viewDate.getMonth()) {
         cell.classList.add("cal-out");
         cell.disabled = true;
       }
 
-      // Disponible ?
       if (availableDays.has(ds)) {
         cell.classList.add("cal-has");
         const count = dayCounts[ds] || 0;
@@ -126,7 +121,6 @@ const jsSelected = JSON.stringify(selectedDate || null);
         cell.disabled = true;
       }
 
-      // Sélection
       if (urlSelected && ds === urlSelected) {
         cell.classList.add("cal-selected");
       }
@@ -135,19 +129,9 @@ const jsSelected = JSON.stringify(selectedDate || null);
     }
   }
 
-  btnPrev.addEventListener("click", () => {
-    viewDate.setMonth(viewDate.getMonth() - 1);
-    renderCal();
-  });
-  btnNext.addEventListener("click", () => {
-    viewDate.setMonth(viewDate.getMonth() + 1);
-    renderCal();
-  });
-  btnToday.addEventListener("click", () => {
-    const now = new Date();
-    viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    renderCal();
-  });
+  btnPrev.addEventListener("click", () => { viewDate.setMonth(viewDate.getMonth() - 1); renderCal(); });
+  btnNext.addEventListener("click", () => { viewDate.setMonth(viewDate.getMonth() + 1); renderCal(); });
+  btnToday.addEventListener("click", () => { const now = new Date(); viewDate = new Date(now.getFullYear(), now.getMonth(), 1); renderCal(); });
 
   renderCal();
 })();

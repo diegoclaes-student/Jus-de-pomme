@@ -1,0 +1,111 @@
+:root {
+  --bs-primary: #7B1E2B;  /* bordeaux */
+  --bs-danger:  #B23A48;  /* rouge */
+  --bs-link-color: #7B1E2B;
+  --bs-body-bg: #fff;
+  --bs-body-color: #212529;
+}
+
+/* Navbar bordeaux */
+.brand-navbar {
+  background: linear-gradient(90deg, #7B1E2B, #8c2432);
+}
+.navbar-toggler { border-color: rgba(255,255,255,.25); }
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,.7)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Logo */
+.brand-logo {
+  height: 28px;
+  width: auto;
+  display: inline-block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.2));
+}
+@media (max-width: 420px) {
+  .brand-title { display: none; }
+}
+
+/* Cartes + boutons */
+.card {
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,.04);
+  border-radius: 14px;
+}
+.btn-primary {
+  background: linear-gradient(180deg, #7B1E2B, #6e1a26);
+  border: none;
+}
+.btn-primary:hover {
+  background: linear-gradient(180deg, #8c2432, #7B1E2B);
+}
+.badge-soft {
+  background: #F8EDEE;
+  color: #7B1E2B;
+  border: 1px solid #f0d5d8;
+}
+.table-responsive {
+  border-radius: 12px;
+  overflow: hidden;
+}
+.section-title { margin-bottom: .75rem; }
+
+/* Calendrier */
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: .25rem;
+  margin-bottom: .25rem;
+  color: #6c757d;
+  text-align: center;
+  font-size: .9rem;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: .4rem;
+}
+.cal-cell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid #eee;
+  border-radius: .6rem;
+  background: #fff;
+  color: #333;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,.03);
+  transition: transform .05s ease, border-color .2s ease, background .2s ease;
+}
+.cal-cell:hover:not(:disabled) { transform: translateY(-1px); }
+.cal-out {
+  background: #fafafa;
+  color: #bbb;
+  border-style: dashed;
+}
+.cal-has {
+  border-color: rgba(123,30,43,.35);
+}
+.cal-has .cal-dot,
+.cal-dot {
+  display: inline-block;
+  width: .5rem; height: .5rem;
+  background: var(--bs-primary);
+  border-radius: 999px;
+}
+.cal-cell.cal-has::after {
+  content: "";
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--bs-primary);
+  bottom: 6px; left: 50%;
+  transform: translateX(-50%);
+}
+.cal-selected {
+  background: #7B1E2B;
+  color: #fff;
+  border-color: #7B1E2B;
+}
+.cal-selected.cal-has::after { background: #fff; }
