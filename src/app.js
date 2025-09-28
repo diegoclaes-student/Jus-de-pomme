@@ -276,6 +276,55 @@ app.get("/admin/test", requireAdmin, (req, res) => {
   `);
 });
 
+// Route admin simple - HTML statique
+app.get("/admin/simple", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Admin Simple</title>
+      <style>body { font-family: system-ui; margin: 40px; }</style>
+    </head>
+    <body>
+      <h1>🎉 Admin Simple - Ça Marche!</h1>
+      <p>Cette page fonctionne sans authentification ni base de données.</p>
+      <ul>
+        <li><a href="/admin/bypass">Tester avec base de données</a></li>
+        <li><a href="/admin/login">Page de login</a></li>
+        <li><a href="/admin/presences/new">Ajouter une présence</a></li>
+      </ul>
+    </body>
+    </html>
+  `);
+});
+
+// Route admin temporaire SANS authentification
+app.get("/admin/bypass", async (req, res) => {
+  console.log("[DEBUG] /admin/bypass accessed - no auth required");
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    console.log("[DEBUG] Starting database queries...");
+    const [presences, todayReservations] = await Promise.all([
+      withTimeout(listPresences(), 2000, "listPresences"),
+      withTimeout(listReservations({ date: today }), 2000, "listReservations")
+    ]);
+    console.log("[DEBUG] Database queries completed");
+    res.render("admin/dashboard", { BRAND, presences, todayReservations });
+  } catch (e) {
+    console.error("[/admin/bypass] DB issue:", e.message);
+    res.status(200).send(`
+      <html><body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;">
+        <div style="max-width:720px;margin:40px auto;background:#fff;padding:24px;border:1px solid #eee;border-radius:12px">
+          <h1 style="margin-top:0">Admin Bypass</h1>
+          <div style="padding:12px 16px;border-radius:8px;background:#fff3cd;color:#664d03;border:1px solid #ffecb5">
+            Erreur de base de données: ${e.message}
+          </div>
+        </div>
+      </body></html>
+    `);
+  }
+});
+
 // Admin pages (avec timeout sur les requêtes DB)
 app.get("/admin", requireAdmin, async (req, res) => {
   console.log("[DEBUG] /admin route accessed");
