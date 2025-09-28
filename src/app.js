@@ -54,11 +54,9 @@ const BRAND = {
 // Helpers
 function setAdminCookie(req, res) {
   const secret = process.env.SESSION_SECRET || "dev_secret";
-  console.log("[DEBUG] Setting cookie with secret:", secret.substring(0, 5) + "...");
   const token = jwt.sign({ admin: true }, secret, { expiresIn: "7d" });
   const proto = (req.headers["x-forwarded-proto"] || "").toString();
   const isHttps = proto.includes("https");
-  console.log("[DEBUG] Cookie secure mode:", isHttps, "proto:", proto);
   res.cookie("admin_token", token, {
     httpOnly: true,
     sameSite: "lax",
@@ -71,15 +69,12 @@ function clearAdminCookie(res) {
 }
 function requireAdmin(req, res, next) {
   const token = req.cookies?.admin_token;
-  console.log("[DEBUG] requireAdmin - token exists:", !!token);
   if (!token) return res.redirect("/admin/login");
   try {
     const secret = process.env.SESSION_SECRET || "dev_secret";
     jwt.verify(token, secret);
-    console.log("[DEBUG] Token verification successful");
     return next();
   } catch (e) {
-    console.log("[DEBUG] Token verification failed:", e.message);
     return res.redirect("/admin/login");
   }
 }
@@ -237,14 +232,10 @@ app.get("/admin/login", (req, res) => {
 app.post("/admin/login", (req, res) => {
   const { password } = req.body;
   const expectedPassword = process.env.ADMIN_PASSWORD || "@Banane123"; // Temporaire pour test
-  console.log("[DEBUG] Login attempt with password:", password ? "***" : "null");
-  console.log("[DEBUG] Expected password exists:", !!expectedPassword);
   if (password && password === expectedPassword) {
-    console.log("[DEBUG] Login successful, setting cookie");
     setAdminCookie(req, res);
     return res.redirect("/admin");
   }
-  console.log("[DEBUG] Login failed");
   res.render("admin/login", { BRAND, error: "Mot de passe incorrect" });
 });
 app.post("/admin/logout", (req, res) => {
@@ -276,6 +267,11 @@ app.get("/admin/test", requireAdmin, (req, res) => {
   `);
 });
 
+// Route de test ultra-basique
+app.get("/test", (req, res) => {
+  res.send("TEST OK - Cette route fonctionne!");
+});
+
 // Route admin simple - HTML statique
 app.get("/admin/simple", (req, res) => {
   res.send(`
@@ -300,18 +296,14 @@ app.get("/admin/simple", (req, res) => {
 
 // Route admin temporaire SANS authentification
 app.get("/admin/bypass", async (req, res) => {
-  console.log("[DEBUG] /admin/bypass accessed - no auth required");
   const today = new Date().toISOString().slice(0, 10);
   try {
-    console.log("[DEBUG] Starting database queries...");
     const [presences, todayReservations] = await Promise.all([
       withTimeout(listPresences(), 2000, "listPresences"),
       withTimeout(listReservations({ date: today }), 2000, "listReservations")
     ]);
-    console.log("[DEBUG] Database queries completed");
     res.render("admin/dashboard", { BRAND, presences, todayReservations });
   } catch (e) {
-    console.error("[/admin/bypass] DB issue:", e.message);
     res.status(200).send(`
       <html><body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;">
         <div style="max-width:720px;margin:40px auto;background:#fff;padding:24px;border:1px solid #eee;border-radius:12px">
@@ -327,15 +319,12 @@ app.get("/admin/bypass", async (req, res) => {
 
 // Admin pages (avec timeout sur les requêtes DB)
 app.get("/admin", requireAdmin, async (req, res) => {
-  console.log("[DEBUG] /admin route accessed");
   const today = new Date().toISOString().slice(0, 10);
   try {
-    console.log("[DEBUG] Starting database queries...");
     const [presences, todayReservations] = await Promise.all([
       withTimeout(listPresences(), 2000, "listPresences"),
       withTimeout(listReservations({ date: today }), 2000, "listReservations")
     ]);
-    console.log("[DEBUG] Database queries completed");
     res.render("admin/dashboard", { BRAND, presences, todayReservations });
   } catch (e) {
     console.error("[/admin] DB issue:", e);
