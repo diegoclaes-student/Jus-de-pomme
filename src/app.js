@@ -53,9 +53,12 @@ const BRAND = {
 
 // Helpers
 function setAdminCookie(req, res) {
-  const token = jwt.sign({ admin: true }, process.env.SESSION_SECRET || "dev_secret", { expiresIn: "7d" });
+  const secret = process.env.SESSION_SECRET || "dev_secret";
+  console.log("[DEBUG] Setting cookie with secret:", secret.substring(0, 5) + "...");
+  const token = jwt.sign({ admin: true }, secret, { expiresIn: "7d" });
   const proto = (req.headers["x-forwarded-proto"] || "").toString();
   const isHttps = proto.includes("https");
+  console.log("[DEBUG] Cookie secure mode:", isHttps, "proto:", proto);
   res.cookie("admin_token", token, {
     httpOnly: true,
     sameSite: "lax",
@@ -68,11 +71,15 @@ function clearAdminCookie(res) {
 }
 function requireAdmin(req, res, next) {
   const token = req.cookies?.admin_token;
+  console.log("[DEBUG] requireAdmin - token exists:", !!token);
   if (!token) return res.redirect("/admin/login");
   try {
-    jwt.verify(token, process.env.SESSION_SECRET || "dev_secret");
+    const secret = process.env.SESSION_SECRET || "dev_secret";
+    jwt.verify(token, secret);
+    console.log("[DEBUG] Token verification successful");
     return next();
-  } catch {
+  } catch (e) {
+    console.log("[DEBUG] Token verification failed:", e.message);
     return res.redirect("/admin/login");
   }
 }
@@ -229,10 +236,15 @@ app.get("/admin/login", (req, res) => {
 });
 app.post("/admin/login", (req, res) => {
   const { password } = req.body;
-  if (password && password === (process.env.ADMIN_PASSWORD || "admin")) {
+  const expectedPassword = process.env.ADMIN_PASSWORD || "@Banane123"; // Temporaire pour test
+  console.log("[DEBUG] Login attempt with password:", password ? "***" : "null");
+  console.log("[DEBUG] Expected password exists:", !!expectedPassword);
+  if (password && password === expectedPassword) {
+    console.log("[DEBUG] Login successful, setting cookie");
     setAdminCookie(req, res);
     return res.redirect("/admin");
   }
+  console.log("[DEBUG] Login failed");
   res.render("admin/login", { BRAND, error: "Mot de passe incorrect" });
 });
 app.post("/admin/logout", (req, res) => {
@@ -240,7 +252,20 @@ app.post("/admin/logout", (req, res) => {
   res.redirect("/admin/login");
 });
 
-// Test simple sans DB pour debugging
+// Test simple sans auth pour debugging
+app.get("/admin/test-no-auth", (req, res) => {
+  res.send(`
+    <html><body style="font-family: sans-serif; padding: 20px;">
+      <h1>Test Sans Auth - OK!</h1>
+      <p>Cette page fonctionne sans authentification.</p>
+      <p>Cookies reçus: ${JSON.stringify(req.cookies)}</p>
+      <a href="/admin/login">Aller au login</a><br>
+      <a href="/admin/debug-cookie">Debug cookie</a>
+    </body></html>
+  `);
+});
+
+// Test simple avec auth pour debugging
 app.get("/admin/test", requireAdmin, (req, res) => {
   res.send(`
     <html><body style="font-family: sans-serif; padding: 20px;">
