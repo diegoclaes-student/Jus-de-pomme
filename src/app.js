@@ -240,14 +240,28 @@ app.post("/admin/logout", (req, res) => {
   res.redirect("/admin/login");
 });
 
+// Test simple sans DB pour debugging
+app.get("/admin/test", requireAdmin, (req, res) => {
+  res.send(`
+    <html><body style="font-family: sans-serif; padding: 20px;">
+      <h1>Admin Test - OK!</h1>
+      <p>Cette page fonctionne sans accès à la base de données.</p>
+      <a href="/admin">Essayer la vraie page admin</a>
+    </body></html>
+  `);
+});
+
 // Admin pages (avec timeout sur les requêtes DB)
 app.get("/admin", requireAdmin, async (req, res) => {
+  console.log("[DEBUG] /admin route accessed");
   const today = new Date().toISOString().slice(0, 10);
   try {
+    console.log("[DEBUG] Starting database queries...");
     const [presences, todayReservations] = await Promise.all([
       withTimeout(listPresences(), 2000, "listPresences"),
       withTimeout(listReservations({ date: today }), 2000, "listReservations")
     ]);
+    console.log("[DEBUG] Database queries completed");
     res.render("admin/dashboard", { BRAND, presences, todayReservations });
   } catch (e) {
     console.error("[/admin] DB issue:", e);
