@@ -6,6 +6,7 @@ import expressLayouts from "express-ejs-layouts";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import { sql } from "@vercel/postgres"; // ajout: ping DB
 
 import {
   createPresence,
@@ -38,7 +39,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(expressLayouts);
 app.set("layout", "layout");
 
-// Static: dossier public/ à la racine du projet
+// Static & middlewares
 app.use(express.static(path.join(process.cwd(), "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -50,13 +51,15 @@ const BRAND = {
   accent: "#B23A48"
 };
 
-// Auth admin via cookie JWT (serverless-friendly)
-function setAdminCookie(res) {
+// Helpers
+function setAdminCookie(req, res) {
   const token = jwt.sign({ admin: true }, process.env.SESSION_SECRET || "dev_secret", { expiresIn: "7d" });
+  const proto = (req.headers["x-forwarded-proto"] || "").toString();
+  const isHttps = proto.includes("https");
   res.cookie("admin_token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: !!process.env.VERCEL,
+    secure: isHttps,
     path: "/"
   });
 }
@@ -78,11 +81,32 @@ function isBeforeSlotStart(slotStartIso) {
   const start = new Date(slotStartIso);
   return now < start;
 }
+const withTimeout = (p, ms, label) =>
+  Promise.race([
+    p,
+    new Promise((_, r) => setTimeout(() => r(new Error(`Timeout ${label} after ${ms}ms`)), ms))
+  ]);
 
-// Health (optionnel)
+// Health & diagnostics
 app.get("/healthz", (req, res) => res.status(200).send("ok"));
+app.get("/admin/debug-cookie", (req, res) => {
+  res.json({
+    proto: req.headers["x-forwarded-proto"] || null,
+    hasCookie: !!req.cookies?.admin_token
+  });
+});
+app.get("/db/ping", async (req, res) => {
+  const t0 = Date.now();
+  try {
+    await sql`select 1`;
+    res.json({ ok: true, ms: Date.now() - t0 });
+  } catch (e) {
+    console.error("[db/ping] error:", e);
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
 
-// Accueil: calendrier + créneaux du jour sélectionné (?d=YYYY-MM-DD)
+// Page d'accueil (calendrier)
 app.get("/", async (req, res) => {
   const allSlots = await listUpcomingSlots({});
   const counts = {};
@@ -206,7 +230,7 @@ app.get("/admin/login", (req, res) => {
 app.post("/admin/login", (req, res) => {
   const { password } = req.body;
   if (password && password === (process.env.ADMIN_PASSWORD || "admin")) {
-    setAdminCookie(res);
+    setAdminCookie(req, res);
     return res.redirect("/admin");
   }
   res.render("admin/login", { BRAND, error: "Mot de passe incorrect" });
@@ -216,13 +240,35 @@ app.post("/admin/logout", (req, res) => {
   res.redirect("/admin/login");
 });
 
-// Admin pages
+// Admin pages (avec timeout sur les requêtes DB)
 app.get("/admin", requireAdmin, async (req, res) => {
-  const presences = await listPresences();
   const today = new Date().toISOString().slice(0, 10);
-  const todayReservations = await listReservations({ date: today });
-  res.render("admin/dashboard", { BRAND, presences, todayReservations });
+  try {
+    const [presences, todayReservations] = await Promise.all([
+      withTimeout(listPresences(), 8000, "listPresences"),
+      withTimeout(listReservations({ date: today }), 8000, "listReservations")
+    ]);
+    res.render("admin/dashboard", { BRAND, presences, todayReservations });
+  } catch (e) {
+    console.error("[/admin] DB issue:", e);
+    res.status(200).send(`
+      <html><body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;">
+        <div style="max-width:720px;margin:40px auto;background:#fff;padding:24px;border:1px solid #eee;border-radius:12px">
+          <h1 style="margin-top:0">Admin</h1>
+          <div style="padding:12px 16px;border-radius:8px;background:#fff3cd;color:#664d03;border:1px solid #ffecb5">
+            La base de données met trop de temps à répondre (ou est indisponible). Réessaie dans quelques secondes.
+          </div>
+          <p style="color:#555">Diagnostic:</p>
+          <ul>
+            <li><a href="/db/ping">Tester la connexion DB (/db/ping)</a></li>
+            <li><a href="/admin/debug-cookie">Voir l’état du cookie admin</a></li>
+          </ul>
+        </div>
+      </body></html>
+    `);
+  }
 });
+
 app.get("/admin/presences/new", requireAdmin, (req, res) => {
   res.render("admin/presences_new", { BRAND, error: null });
 });

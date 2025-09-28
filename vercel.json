@@ -1,5 +1,12 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/server.js" }
-  ]
-}
+    "functions": {
+      "api/server.js": {
+        "runtime": "nodejs20.x",
+        "maxDuration": 60,
+        "regions": ["fra1", "cdg1", "arn1"]
+      }
+    },
+    "rewrites": [
+      { "source": "/(.*)", "destination": "/api/server.js" }
+    ]
+  }
