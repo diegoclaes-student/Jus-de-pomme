@@ -143,16 +143,23 @@ export async function listReservations({ date = null, location = "" } = {}) {
     WHERE 1=1
   `;
   const params = [];
-  if (date) { params.push(date); q += ` AND p.date = $${params.length}`; }
-  if (location) { params.push(`%${location}%`); q += ` AND p.location ILIKE $${params.length}`; }
-  q += ` ORDER BY p.date ASC, s.start_at ASC`;
+  if (date) { 
+    params.push(date); 
+    q += ` AND p.date = $${params.length}`; 
+  }
+  if (location) { 
+    params.push(`%${location}%`); 
+    q += ` AND p.location ILIKE $${params.length}`; 
+  }
+  // Limiter les résultats pour éviter les timeouts
+  q += ` ORDER BY p.date ASC, s.start_at ASC LIMIT 100`;
   const { rows } = await sql.query(q, params);
   return rows;
 }
 
 export async function listPresences() {
   await ensureSchema();
-  const { rows } = await sql`SELECT * FROM presences ORDER BY date ASC, start_time ASC`;
+  const { rows } = await sql`SELECT * FROM presences ORDER BY date ASC, start_time ASC LIMIT 50`;
   return rows;
 }
 

@@ -245,8 +245,8 @@ app.get("/admin", requireAdmin, async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   try {
     const [presences, todayReservations] = await Promise.all([
-      withTimeout(listPresences(), 8000, "listPresences"),
-      withTimeout(listReservations({ date: today }), 8000, "listReservations")
+      withTimeout(listPresences(), 2000, "listPresences"),
+      withTimeout(listReservations({ date: today }), 2000, "listReservations")
     ]);
     res.render("admin/dashboard", { BRAND, presences, todayReservations });
   } catch (e) {
